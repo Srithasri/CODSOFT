@@ -1,0 +1,96 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+// Function to calculate cosine similarity between two vectors
+double cosineSimilarity(const vector<double>& v1, const vector<double>& v2) {
+    double dotProduct = 0.0;
+    double normV1 = 0.0;
+    double normV2 = 0.0;
+
+    for (size_t i = 0; i < v1.size(); ++i) {
+        dotProduct += v1[i] * v2[i];
+        normV1 += v1[i] * v1[i];
+        normV2 += v2[i] * v2[i];
+    }
+
+    if (normV1 == 0.0 || normV2 == 0.0) {
+        return 0.0;  // To avoid division by zero
+    }
+
+    return dotProduct / (sqrt(normV1) * sqrt(normV2));
+}
+
+// Function to get book recommendations for a user using collaborative filtering
+vector<pair<int, double>> getBookRecommendations(int userId,
+                                                 const vector<vector<double>>& userItemMatrix,
+                                                 const vector<vector<double>>& similarityMatrix) {
+    vector<pair<int, double>> recommendations;
+
+    for (size_t bookId = 0; bookId < userItemMatrix[0].size(); ++bookId) {
+        if (userItemMatrix[userId][bookId] == 0.0) {  // Unread book
+            double weightedSum = 0.0;
+            double similaritySum = 0.0;
+
+            for (size_t otherUserId = 0; otherUserId < userItemMatrix.size(); ++otherUserId) {
+                if (otherUserId != userId && userItemMatrix[otherUserId][bookId] != 0.0) {
+                    double similarity = similarityMatrix[userId][otherUserId];
+                    weightedSum += similarity * userItemMatrix[otherUserId][bookId];
+                    similaritySum += abs(similarity);
+                }
+            }
+
+            if (similaritySum > 0.0) {
+                double predictedRating = weightedSum / similaritySum;
+                recommendations.push_back({static_cast<int>(bookId), predictedRating});
+            }
+        }
+    }
+
+    // Sort recommendations based on predicted ratings (descending order)
+    sort(recommendations.begin(), recommendations.end(),
+         [](const pair<int, double>& a, const pair<int, double>& b) {
+             return a.second > b.second;
+         });
+
+    return recommendations;
+}
+
+int main() {
+    // Sample user-item matrix (0 indicates unread books)
+    vector<vector<double>> userItemMatrix = {
+        {5, 0, 4, 0, 0},
+        {0, 4, 0, 5, 0},
+        {0, 0, 3, 0, 4},
+        {0, 0, 4, 0, 5}
+    };
+
+    // Number of users and books
+    size_t numUsers = userItemMatrix.size();
+    size_t numBooks = userItemMatrix[0].size();
+
+    // Calculate user similarity matrix (cosine similarity)
+    vector<vector<double>> similarityMatrix(numUsers, vector<double>(numUsers, 0.0));
+
+    for (size_t i = 0; i < numUsers; ++i) {
+        for (size_t j = 0; j < numUsers; ++j) {
+            similarityMatrix[i][j] = cosineSimilarity(userItemMatrix[i], userItemMatrix[j]);
+        }
+    }
+
+    // Get book recommendations for user 0
+    int userId = 0;
+    vector<pair<int, double>> recommendations = getBookRecommendations(userId, userItemMatrix, similarityMatrix);
+
+    // Print recommendations
+    cout << "Top Book Recommendations for User " << userId << ":\n";
+    for (const auto& recommendation : recommendations) {
+        cout << "Book ID: " << recommendation.first << ", Predicted Rating: " << recommendation.second << "\n";
+    }
+
+    return 0;
+}
+
